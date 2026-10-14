@@ -148,39 +148,73 @@ def apply_overlays(root, stage):
 
 
 UPDATE_ASSET = "karman-update.zip"
+LATEST_ASSET = "karman-latest.ini"
 DL = "/config/ultrahand/downloads"
+K = 100_000_000  # build numbers are 8 digits, so latest-installed stays within +-K and int32
 
 
-def update_sections(release):
+def clean(*paths):
+    # each delete gets its own try: block, so a missing path can never skip the real work
+    return [x for p in paths for x in ("try:", f"delete {p}")]
+
+
+def install_lines(url):
+    return [
+        f"download {url} {DL}/{UPDATE_ASSET}",
+        f"unzip {DL}/{UPDATE_ASSET} {DL}/karman-update/",
+        f"move {DL}/karman-update/ /",
+        f"delete {DL}/{UPDATE_ASSET}",
+    ]
+
+
+def update_sections(release, build_no):
     out = []
     if repo := release.get("repo"):
-        url = f"https://github.com/{repo}/releases/latest/download/{UPDATE_ASSET}"
+        base = f"https://github.com/{repo}/releases/latest/download"
+        diff = "{ini_file(karman,build)}-" + build_no  # latest - installed
+        out += ["[Update Karman (reboot after)]"]
+        out += clean(f"{DL}/gate/", f"{DL}/{LATEST_ASSET}", f"{DL}/karman-update/", f"{DL}/{UPDATE_ASSET}")
         out += [
-            "[Update Karman (reboot after)]",
-            f"delete {DL}/{UPDATE_ASSET}",
-            f"delete {DL}/karman-update/",  # leftovers from an interrupted run must not mix in
-            f"download {url} {DL}/{UPDATE_ASSET}",
-            f"unzip {DL}/{UPDATE_ASSET} {DL}/karman-update/",
-            f"move {DL}/karman-update/ /",
-            f"delete {DL}/{UPDATE_ASSET}",
+            "try:",
+            f"mkdir {DL}/gate/",
+            f"download {base}/{LATEST_ASSET} {DL}/{LATEST_ASSET}",
+            f"ini_file {DL}/{LATEST_ASSET}",
+            # p1 <=> latest > installed, n1 <=> latest >= installed (integer division of d+K by K)
+            "touch " + DL + "/gate/p{math((" + diff + f"-1+{K})/{K},true)}}",
+            "touch " + DL + "/gate/n{math((" + diff + f"+{K})/{K},true)}}",
+            "try:", f"path_exists {DL}/gate/n0",
+            "notify-now 'Blocked: your Karman is newer than the latest release. Use Force install latest to override, at your own risk.'",
+            "try:", f"path_exists {DL}/gate/n1", f"path_exists {DL}/gate/p0",
+            "notify-now 'Karman is already up to date.'",
+            "try:", f"!path_exists {DL}/gate/n0", f"!path_exists {DL}/gate/n1",
+            "notify-now 'Could not check for updates. Nothing was changed.'",
+            "try:",
+            f"path_exists {DL}/gate/p1",  # fail-closed: only a positive marker installs
+            *install_lines(f"{base}/{UPDATE_ASSET}"),
+            "notify-now 'Updated. Reboot to apply.'",
+            "",
+            "[Force install latest (may downgrade - at your own risk)]",
+            ";hold=true",
+            *clean(f"{DL}/karman-update/", f"{DL}/{UPDATE_ASSET}"),
+            "try:",
+            *install_lines(f"{base}/{UPDATE_ASSET}"),
+            "notify-now 'Installed. Reboot to apply.'",
             "",
         ]
     if fw := release.get("firmware_url"):
-        out += [
-            "[Download firmware (then open Daybreak)]",
-            f"delete {DL}/firmware.zip",
-            f"download {fw} {DL}/firmware.zip",
-            f"unzip {DL}/firmware.zip /firmware/",
-            f"delete {DL}/firmware.zip",
-            "",
-        ]
+        out += ["[Download firmware (then open Daybreak)]", *clean(f"{DL}/firmware.zip"), "try:",
+                f"download {fw} {DL}/firmware.zip",
+                f"unzip {DL}/firmware.zip /firmware/",
+                f"delete {DL}/firmware.zip",
+                "notify-now 'Firmware downloaded to /firmware. Open Daybreak to install it.'",
+                ""]
     return out
 
 
-def write_package(stage, release=None):
+def write_package(stage, release=None, build_no="00000000"):
     # ponytail: whole-file copy resets other Ultrahand settings (combo, theme);
     # switch to an ini-edit command if Ultrahand exposes one.
-    lines = update_sections(release or {})
+    lines = update_sections(release or {}, build_no)
     for l, title in LANGS.items():
         base = stage / "karman/lang" / l
         lines.append(f"[{title}]")
@@ -229,10 +263,13 @@ def release_cfg(data):
     return r
 
 
-def build(root, manifest, out, cache, version="dev"):
-    update = out.with_name("karman-update.zip")
-    for z in (out, update):
+def build(root, manifest, out, cache, version="dev", build_no="00000000"):
+    update = out.with_name(UPDATE_ASSET)
+    latest = out.with_name(LATEST_ASSET)
+    for z in (out, update, latest):
         z.unlink(missing_ok=True)  # first, so ANY failure below leaves no older zip looking current
+    if not re.fullmatch(r"\d{8}", build_no):
+        raise BuildError("build must be exactly 8 digits (YYMMDDNN), got %r" % build_no)
     data = tomllib.loads(manifest.read_text())
     comps, release = data["component"], release_cfg(data)
     lock = {}
@@ -247,18 +284,20 @@ def build(root, manifest, out, cache, version="dev"):
                 raise BuildError(f"{c['name']}: {e}") from e
             lock[c["name"]] = {"tag": tag, "asset": name, "sha256": digest}
         apply_overlays(root, stage)
-        write_package(stage, release)
+        write_package(stage, release, build_no)
         text = json.dumps(lock, indent=2, sort_keys=True) + "\n"
         (stage / "karman").mkdir(exist_ok=True)
         (stage / "karman/lock.json").write_text(text)
-        (stage / "karman/version.txt").write_text(version + "\n")
+        info = f"[karman]\nversion={version}\nbuild={build_no}\n"
+        (stage / "karman/version.ini").write_text(info)
         try:
             write_zip(stage, out)
             write_zip(stage, update, skip=USER_OWNED)
         except BaseException:
-            for z in (out, update):  # never ship half a release
+            for z in (out, update, latest):  # never ship half a release
                 z.unlink(missing_ok=True)
             raise
+        latest.write_text(info)
         (root / "lock.json").write_text(text)
     return out
 
@@ -266,11 +305,13 @@ def build(root, manifest, out, cache, version="dev"):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Build the Karman SD-card zip")
     ap.add_argument("--version", default=datetime.date.today().strftime("%Y.%m.%d"))
+    ap.add_argument("--build", default=datetime.date.today().strftime("%y%m%d") + "01",
+                    help="8-digit build number YYMMDDNN; raise NN for a second release the same day")
     ap.add_argument("--manifest", default=ROOT / "manifest.toml", type=Path)
     ap.add_argument("--out", default=ROOT / "dist", type=Path)
     a = ap.parse_args(argv)
     try:
-        print(build(ROOT, a.manifest, a.out / f"karman-{a.version}.zip", ROOT / ".cache", a.version))
+        print(build(ROOT, a.manifest, a.out / f"karman-{a.version}.zip", ROOT / ".cache", a.version, a.build))
     except BuildError as e:
         raise SystemExit(f"build failed: {e}")
 

@@ -29,7 +29,7 @@ python3 build.py --version 1.0 # custom version
 python3 -m unittest            # run the tests (no network needed)
 ```
 
-Each build also writes `dist/karman-update.zip` for the on-console updater. To publish a release, see *Publishing a release* in [docs/en/updating.md](docs/en/updating.md).
+Each build also writes `dist/karman-update.zip` and `dist/karman-latest.ini` for the on-console updater (with an up-to-date check and downgrade protection). Pass `--build YYMMDDNN` when you publish more than once a day. To publish a release, see *Publishing a release* in [docs/en/updating.md](docs/en/updating.md).
 
 Each build writes `lock.json` (tag, asset and SHA-256 of every component), so builds are reproducible: the same inputs give a byte-identical zip. A failed build produces no zip and names the failing component.
 
@@ -60,6 +60,10 @@ lang/{en,ptbr,es} per-language config overlays
 test_build.py     tests
 docs/             guides
 ```
+
+## License
+
+Apache License 2.0, see [LICENSE](LICENSE). Copyright 2026 Junior Saldanha.
 
 ## Legal
 

@@ -152,13 +152,22 @@ class Update(unittest.TestCase):
             self.run_build(root, name="2.zip")
             self.assertEqual(a, (root / "dist/karman-update.zip").read_bytes())
 
-    def test_version_txt_in_both_zips(self):
+    def test_version_ini_in_both_zips_and_latest_asset(self):
         with tempfile.TemporaryDirectory() as t:
             root = make_root(t)
-            full = zipfile.ZipFile(self.run_build(root, version="1.2.3"))
+            want = b"[karman]\nversion=1.2.3\nbuild=26101401\n"
+            full = zipfile.ZipFile(build.build(root, root / "manifest.toml", root / "dist/o.zip", root / ".cache", "1.2.3", "26101401"))
             upd = zipfile.ZipFile(root / "dist/karman-update.zip")
-            self.assertEqual(full.read("karman/version.txt"), b"1.2.3\n")
-            self.assertEqual(upd.read("karman/version.txt"), b"1.2.3\n")
+            self.assertEqual(full.read("karman/version.ini"), want)
+            self.assertEqual(upd.read("karman/version.ini"), want)
+            self.assertEqual((root / "dist/karman-latest.ini").read_bytes(), want)
+
+    def test_build_number_must_be_8_digits(self):
+        for bad in ("abc", "2610140", "261014011", ""):
+            with self.subTest(bad), tempfile.TemporaryDirectory() as t:
+                root = make_root(t)
+                with self.assertRaisesRegex(build.BuildError, "build"):
+                    build.build(root, root / "manifest.toml", root / "dist/o.zip", root / ".cache", "1", bad)
 
     def test_bad_release_type_names_key(self):
         with tempfile.TemporaryDirectory() as t:
@@ -175,6 +184,7 @@ class Update(unittest.TestCase):
             with self.assertRaises(build.BuildError):
                 self.run_build(root)
             self.assertFalse((root / "dist/karman-update.zip").exists())
+            self.assertFalse((root / "dist/karman-latest.ini").exists())
 
 
 class Hardening(unittest.TestCase):
@@ -233,28 +243,76 @@ class Hardening(unittest.TestCase):
             self.assertFalse((root / "dist/out.zip").exists())
 
 
+DL = "/config/ultrahand/downloads"
+UPD = "https://github.com/o/r/releases/latest/download/karman-update.zip"
+LATEST = "https://github.com/o/r/releases/latest/download/karman-latest.ini"
+D = "({ini_file(karman,build)}-26101401%s+100000000)/100000000"
+
+
+def section(pkg, title):
+    lines, out, on = pkg.splitlines(), [], False
+    for l in lines:
+        if l.startswith("["):
+            on = l == f"[{title}]"
+        if on:
+            out.append(l)
+    return out
+
+
 class Package(unittest.TestCase):
-    def pkg(self, release_toml=""):
+    def pkg(self, release_toml="", build_no="26101401"):
         with tempfile.TemporaryDirectory() as t:
             root = make_root(t)
             if release_toml:
                 with_release(root, release_toml)
-            z = zipfile.ZipFile(build.build(root, root / "manifest.toml", root / "dist/o.zip", root / ".cache"))
+            z = zipfile.ZipFile(build.build(root, root / "manifest.toml", root / "dist/o.zip", root / ".cache", "dev", build_no))
             return z.read("switch/.packages/Karman/package.ini").decode()
 
-    def test_update_section_when_repo_set(self):
-        lines = self.pkg('[release]\nrepo = "o/r"').splitlines()
-        dl = "/config/ultrahand/downloads"
-        self.assertEqual(lines[:8], [
+    def test_update_section_gates_on_build_number(self):
+        sec = section(self.pkg('[release]\nrepo = "o/r"'), "Update Karman (reboot after)")
+        self.assertEqual(sec, [
             "[Update Karman (reboot after)]",
-            f"delete {dl}/karman-update.zip",
-            f"delete {dl}/karman-update/",
-            f"download https://github.com/o/r/releases/latest/download/karman-update.zip {dl}/karman-update.zip",
-            f"unzip {dl}/karman-update.zip {dl}/karman-update/",
-            f"move {dl}/karman-update/ /",
-            f"delete {dl}/karman-update.zip",
+            "try:", f"delete {DL}/gate/",
+            "try:", f"delete {DL}/karman-latest.ini",
+            "try:", f"delete {DL}/karman-update/",
+            "try:", f"delete {DL}/karman-update.zip",
+            "try:",
+            f"mkdir {DL}/gate/",
+            f"download {LATEST} {DL}/karman-latest.ini",
+            f"ini_file {DL}/karman-latest.ini",
+            "touch " + DL + "/gate/p{math(" + (D % "-1") + ",true)}",
+            "touch " + DL + "/gate/n{math(" + (D % "") + ",true)}",
+            "try:", f"path_exists {DL}/gate/n0",
+            "notify-now 'Blocked: your Karman is newer than the latest release. Use Force install latest to override, at your own risk.'",
+            "try:", f"path_exists {DL}/gate/n1", f"path_exists {DL}/gate/p0",
+            "notify-now 'Karman is already up to date.'",
+            "try:", f"!path_exists {DL}/gate/n0", f"!path_exists {DL}/gate/n1",
+            "notify-now 'Could not check for updates. Nothing was changed.'",
+            "try:",
+            f"path_exists {DL}/gate/p1",
+            f"download {UPD} {DL}/karman-update.zip",
+            f"unzip {DL}/karman-update.zip {DL}/karman-update/",
+            f"move {DL}/karman-update/ /",
+            f"delete {DL}/karman-update.zip",
+            "notify-now 'Updated. Reboot to apply.'",
             "",
         ])
+
+    def test_install_only_after_positive_marker(self):
+        sec = section(self.pkg('[release]\nrepo = "o/r"'), "Update Karman (reboot after)")
+        gate = sec.index(f"path_exists {DL}/gate/p1")
+        self.assertEqual([i for i, l in enumerate(sec) if l.startswith("download ") and "karman-latest.ini" not in l], [gate + 1])
+        self.assertEqual(sec[gate - 1], "try:")  # fail-closed: the check heads its own block
+
+    def test_installed_build_is_embedded(self):
+        self.assertIn("-26101401", self.pkg('[release]\nrepo = "o/r"', build_no="26101401"))
+        self.assertIn("-00000042", self.pkg('[release]\nrepo = "o/r"', build_no="00000042"))
+
+    def test_force_entry_is_hold_to_confirm_and_ungated(self):
+        sec = section(self.pkg('[release]\nrepo = "o/r"'), "Force install latest (may downgrade - at your own risk)")
+        self.assertEqual(sec[1], ";hold=true")
+        self.assertIn(f"download {UPD} {DL}/karman-update.zip", sec)
+        self.assertFalse([l for l in sec if "gate" in l or "ini_file" in l])
 
     def test_no_update_section_without_repo(self):
         p = self.pkg()
