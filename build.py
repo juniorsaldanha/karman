@@ -54,3 +54,45 @@ def install(c, f, stage):
         subprocess.run(["tar", "-xf", str(f), "-C", str(dest)], check=True)
     else:
         shutil.copy2(f, dest / c.get("rename", f.name))
+
+
+def resolve(c):
+    src = c["source"]
+    if src == "github":
+        ref = f"tags/{c['pin']}" if "pin" in c else "latest"
+        rel = api(f"repos/{c['repo']}/releases/{ref}")
+        assets = {a["name"]: a["browser_download_url"] for a in rel["assets"]}
+        name = pick_asset(list(assets), c["asset"])
+        return rel["tag_name"], name, assets[name]
+    if src == "url":
+        return "url", Path(c["url"]).name, c["url"]
+    if src == "local":
+        return "local", Path(c["path"]).name, c["path"]
+    raise BuildError(f"unknown source {src!r}")
+
+
+def fetch(c, url, name, cache):
+    if c["source"] == "local":
+        return Path(url)
+    dest = cache / hashlib.sha256(url.encode()).hexdigest()[:16] / name
+    if c["source"] == "github" and dest.exists():  # asset URLs embed the tag: never stale
+        return dest
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(http(url))
+    return dest
+
+
+def sha256(p):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def fetch_verified(c, cache):
+    try:
+        tag, name, url = resolve(c)
+        f = fetch(c, url, name, cache)
+        digest = sha256(f)
+        if c.get("sha256", digest) != digest:
+            raise BuildError(f"sha256 mismatch: expected {c['sha256']}, got {digest}")
+        return tag, name, f, digest
+    except Exception as e:
+        raise BuildError(f"{c['name']}: {e}") from e
