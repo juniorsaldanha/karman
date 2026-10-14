@@ -49,10 +49,18 @@ Explicitly excluded: sigpatches, Lockpick_RCM (upstream DMCA-blocked), and stale
 Failure is loud and total: an asset glob matching zero or several files, a download error, or a changed SHA-256 on a pinned entry stops the build, names the component, and produces no zip.
 
 ## Runtime language switching
-- Overlays contain config only (Hekate/Nyx language, per-app config such as Ultrahand `lang` and DBI config), never binaries.
-- Hekate boot menu has one entry per language. Each runs a small script/payload that copies `karman/lang/<xx>/` over the live files and returns to the menu.
+- Hekate/Nyx has no language setting, so the switcher does not touch it.
+- Overlays contain config only, never binaries. v1 covers Ultrahand (`/config/ultrahand/config.ini`, section `[ultrahand]`, key `default_lang`, values `en` / `pt` / `es`).
+- The build generates an Ultrahand package (`/switch/.packages/Karman/package.ini`) with one section per language; each section `copy`s that language's overlay files from `/karman/lang/<xx>/` over the live paths. No payload reboot.
 - Zero boot-time cost; code runs only when the user switches.
-- During implementation, verify per app whether its language can be set by a config file. Apps that can't remain system-language-driven and are documented as such.
+- Known limit: whole-file copy resets Ultrahand's other settings (key combo, theme).
+- Sphaira, DBI, Goldleaf, Checkpoint, JKSV and games follow the Switch system language. Add overlays for them only after their config keys are verified.
+
+## Docs
+`docs/{en,ptbr,es}/`: how-to (install), format SD card (Windows, Linux, macOS), emuMMC, customization, languages. Plus a top-level `README.md`.
+
+## Requirements
+Python 3.11+ (`tomllib`), stdlib only. `tar` for the one `.7z` (RetroArch).
 
 ## Testing
 - `test_build.py` builds from a local fixture manifest (no network) and asserts: expected paths in the zip, all three language overlays present, `lock.json` written, and a zero-match glob fails the build.
