@@ -1,0 +1,129 @@
+# Karman components. source: github (repo + asset glob, latest or `pin` tag) | url.
+# dest: SD-root-relative directory. kind: zip (default for .zip) | 7z | file.
+# Add sha256 = "..." to any entry to pin its exact bytes.
+
+[[component]]
+name = "atmosphere"
+source = "github"
+repo = "Atmosphere-NX/Atmosphere"
+asset = "atmosphere-*.zip"
+
+[[component]]
+name = "fusee"
+source = "github"
+repo = "Atmosphere-NX/Atmosphere"
+asset = "fusee.bin"
+dest = "bootloader/payloads"
+
+[[component]]
+name = "hekate"
+source = "github"
+repo = "CTCaer/hekate"
+asset = "hekate_ctcaer_*_Nyx_*.zip"
+
+[[component]]
+name = "sphaira"
+source = "github"
+repo = "ITotalJustice/sphaira"
+asset = "sphaira.zip"
+
+[[component]]
+name = "ultrahand"
+source = "github"
+repo = "ppkantorski/Ultrahand-Overlay"
+asset = "sdout.zip"
+
+[[component]]
+name = "ovl-sysmodules"
+source = "github"
+repo = "ppkantorski/ovl-sysmodules"
+asset = "ovlSysmodules.ovl"
+dest = "switch/.overlays"
+
+[[component]]
+name = "fpslocker"
+source = "github"
+repo = "masagrator/FPSLocker"
+asset = "FPSLocker.ovl"
+dest = "switch/.overlays"
+
+[[component]]
+name = "fizeau"
+source = "github"
+repo = "averne/Fizeau"
+asset = "Fizeau-*.zip"
+
+[[component]]
+name = "goldleaf"
+source = "github"
+repo = "XorTroll/Goldleaf"
+asset = "Goldleaf.nro"
+dest = "switch/Goldleaf"
+
+[[component]]
+name = "dbi"
+source = "github"
+repo = "rashevskyv/dbi"
+asset = "DBI.nro"
+dest = "switch/DBI"
+
+[[component]]
+name = "checkpoint"
+source = "github"
+repo = "FlagBrew/Checkpoint"
+asset = "Checkpoint.nro"
+dest = "switch/Checkpoint"
+
+[[component]]
+name = "jksv"
+source = "github"
+repo = "J-D-K/JKSV"
+asset = "JKSV.nro"
+dest = "switch/JKSV"
+
+[[component]]
+name = "nxthemes"
+source = "github"
+repo = "exelix11/SwitchThemeInjector"
+asset = "NXThemesInstaller.nro"
+dest = "switch/NXThemesInstaller"
+
+[[component]]
+name = "emuiibo"
+source = "github"
+repo = "XorTroll/emuiibo"
+asset = "emuiibo.zip"
+
+[[component]]
+name = "sys-ftpd-light"
+source = "github"
+repo = "cathery/sys-ftpd-light"
+asset = "sys-ftpd-*.zip"
+
+[[component]]
+name = "tegraexplorer"
+source = "github"
+repo = "suchmememanyskill/TegraExplorer"
+asset = "TegraExplorer.bin"
+dest = "bootloader/payloads"
+
+[[component]]
+name = "devilutionx"
+source = "github"
+repo = "diasurgical/devilutionX"
+asset = "devilutionx-switch.nro"
+dest = "switch/devilutionx"
+
+[[component]]
+name = "perfect-dark"
+source = "github"
+repo = "fgsfdsfgs/perfect_dark"
+pin = "ci-dev-build"
+asset = "pd-arm64-nswitch.zip"
+dest = "switch/perfect_dark"
+
+[[component]]
+name = "retroarch"
+source = "url"
+url = "https://buildbot.libretro.com/nightly/nintendo/switch/libnx/RetroArch.7z"
+kind = "7z"
