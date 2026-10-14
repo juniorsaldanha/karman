@@ -29,6 +29,8 @@ python3 build.py --version 1.0 # custom version
 python3 -m unittest            # run the tests (no network needed)
 ```
 
+Each build also writes `dist/karman-update.zip` for the on-console updater. To publish a release, see *Publishing a release* in [docs/en/updating.md](docs/en/updating.md).
+
 Each build writes `lock.json` (tag, asset and SHA-256 of every component), so builds are reproducible: the same inputs give a byte-identical zip. A failed build produces no zip and names the failing component.
 
 ## Install
@@ -44,6 +46,7 @@ Each build writes `lock.json` (tag, asset and SHA-256 of every component), so bu
 | Install | [how-to](docs/en/how-to.md) | [como fazer](docs/ptbr/how-to.md) | [cómo hacerlo](docs/es/how-to.md) |
 | Format the SD card | [format-sd](docs/en/format-sd.md) | [formatar](docs/ptbr/format-sd.md) | [formatear](docs/es/format-sd.md) |
 | emuMMC (emuNAND) | [emummc](docs/en/emummc.md) | [emummc](docs/ptbr/emummc.md) | [emummc](docs/es/emummc.md) |
+| Update (on the console) | [updating](docs/en/updating.md) | [atualizando](docs/ptbr/updating.md) | [actualizando](docs/es/updating.md) |
 | Customize | [customize](docs/en/customize.md) | [personalizar](docs/ptbr/customize.md) | [personalizar](docs/es/customize.md) |
 | Languages | [languages](docs/en/languages.md) | [idiomas](docs/ptbr/languages.md) | [idiomas](docs/es/languages.md) |
 

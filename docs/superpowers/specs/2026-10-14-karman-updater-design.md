@@ -24,7 +24,7 @@ No JSON parsing on the console: the asset name is constant, so `releases/latest/
    - `dist/karman-update.zip`: the same file set minus the user-owned files (`USER_OWNED`: `bootloader/hekate_ipl.ini`, `config/ultrahand/config.ini`). Same deterministic writer.
 3. **`karman/version.txt`** inside the pack holds the version string, so the user can see what is installed. The build gets the version from `--version`.
 4. **Package entries**, generated into `switch/.packages/Karman/package.ini` next to the language sections:
-   - `[Update Karman]`: `download <update-url> /config/ultrahand/downloads/karman-update.zip`, `unzip` it into `/config/ultrahand/downloads/karman-update/`, `move` that folder onto `/`, `delete` the temp files, then show a "reboot to apply" message. Wrapped in the same `try:` fallback style as Ultrahand's Easy Installer example.
+   - `[Update Karman (reboot after)]`: `download <update-url> /config/ultrahand/downloads/karman-update.zip`, `unzip` it into `/config/ultrahand/downloads/karman-update/`, `move` that folder onto `/`, `delete` the temp files. The reboot instruction is in the section title because a notify command is unverified. No `try:` wrapper: unverified, and the Easy Installer example uses it for fallbacks we don't have.
    - `[Download firmware]`, only when `release.firmware_url` is set: `download <firmware-url>` to the downloads folder, `unzip` into `/firmware/`, `delete` the zip, message pointing the user to Daybreak. The URL is the user's; Karman ships none.
 5. **Language entries stay as they are.** Because `karman-update.zip` excludes `config/ultrahand/config.ini`, an update does not reset the chosen language either.
 

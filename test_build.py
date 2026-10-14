@@ -116,6 +116,103 @@ class Cache(unittest.TestCase):
             self.assertEqual(self.fetch(Path(t), "s", b"ok").read_bytes(), b"ok")
 
 
+def add_base(root):
+    (root / "base/bootloader").mkdir(parents=True)
+    (root / "base/bootloader/hekate_ipl.ini").write_text("[config]\n")
+
+
+def with_release(root, text):
+    m = root / "manifest.toml"
+    m.write_text(text + "\n" + m.read_text())
+
+
+class Update(unittest.TestCase):
+    def run_build(self, root, version="9.9", name="out.zip"):
+        return build.build(root, root / "manifest.toml", root / "dist" / name, root / ".cache", version)
+
+    def test_update_zip_is_full_minus_user_owned(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            add_base(root)
+            full = set(zipfile.ZipFile(self.run_build(root)).namelist())
+            upd = set(zipfile.ZipFile(root / "dist/karman-update.zip").namelist())
+            self.assertEqual(full - upd, set(build.USER_OWNED))
+            self.assertEqual(upd - full, set())
+
+    def test_update_zip_deterministic(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            self.run_build(root, name="1.zip")
+            a = (root / "dist/karman-update.zip").read_bytes()
+            self.run_build(root, name="2.zip")
+            self.assertEqual(a, (root / "dist/karman-update.zip").read_bytes())
+
+    def test_version_txt_in_both_zips(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            full = zipfile.ZipFile(self.run_build(root, version="1.2.3"))
+            upd = zipfile.ZipFile(root / "dist/karman-update.zip")
+            self.assertEqual(full.read("karman/version.txt"), b"1.2.3\n")
+            self.assertEqual(upd.read("karman/version.txt"), b"1.2.3\n")
+
+    def test_bad_release_type_names_key(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            with_release(root, "[release]\nrepo = 5")
+            with self.assertRaisesRegex(build.BuildError, "repo"):
+                self.run_build(root)
+
+    def test_failed_build_removes_stale_update_zip(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            self.run_build(root)
+            (root / "fix/a.zip").write_bytes(b"not a zip")
+            with self.assertRaises(build.BuildError):
+                self.run_build(root)
+            self.assertFalse((root / "dist/karman-update.zip").exists())
+
+
+class Package(unittest.TestCase):
+    def pkg(self, release_toml=""):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            if release_toml:
+                with_release(root, release_toml)
+            z = zipfile.ZipFile(build.build(root, root / "manifest.toml", root / "dist/o.zip", root / ".cache"))
+            return z.read("switch/.packages/Karman/package.ini").decode()
+
+    def test_update_section_when_repo_set(self):
+        lines = self.pkg('[release]\nrepo = "o/r"').splitlines()
+        dl = "/config/ultrahand/downloads"
+        self.assertEqual(lines[:7], [
+            "[Update Karman (reboot after)]",
+            f"delete {dl}/karman-update.zip",
+            f"download https://github.com/o/r/releases/latest/download/karman-update.zip {dl}/karman-update.zip",
+            f"unzip {dl}/karman-update.zip {dl}/karman-update/",
+            f"move {dl}/karman-update/ /",
+            f"delete {dl}/karman-update.zip",
+            "",
+        ])
+
+    def test_no_update_section_without_repo(self):
+        p = self.pkg()
+        self.assertNotIn("Update Karman", p)
+        self.assertNotIn("github.com", p)
+        self.assertIn("[English]", p)  # language entries unaffected
+
+    def test_firmware_section_only_with_url(self):
+        self.assertNotIn("firmware", self.pkg('[release]\nrepo = "o/r"').lower())
+        p = self.pkg('[release]\nrepo = "o/r"\nfirmware_url = "https://example.com/fw.zip"')
+        self.assertIn("[Download firmware (then open Daybreak)]", p)
+        self.assertIn("download https://example.com/fw.zip /config/ultrahand/downloads/firmware.zip", p)
+        self.assertIn("unzip /config/ultrahand/downloads/firmware.zip /firmware/", p)
+
+    def test_firmware_url_alone_does_not_need_repo(self):
+        p = self.pkg('[release]\nfirmware_url = "https://example.com/fw.zip"')
+        self.assertIn("Download firmware", p)
+        self.assertNotIn("Update Karman", p)
+
+
 class Fetch(unittest.TestCase):
     def local(self, t, **extra):
         f = Path(t) / "b.nro"
