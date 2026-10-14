@@ -13,7 +13,7 @@ Karman supports **English**, **Português (BR)** and **Español**.
 | Part | Language is set by |
 |---|---|
 | Ultrahand UI | The Karman package (above) or Ultrahand's own settings |
-| Sphaira, DBI, Goldleaf, Checkpoint, JKSV, games | The **Switch system language** (System Settings → System → Language) |
+| Sphaira, DBI, Goldleaf, Checkpoint, JKSV, games | Usually the **Switch system language** (System Settings → System → Language). Not verified for every app: if an app has its own language setting, change it there |
 | Hekate / Nyx | English only: Hekate has no language setting |
 
 Karman adds overlays for another app only after its config key is verified (see [customize](customize.md)).

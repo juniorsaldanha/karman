@@ -43,7 +43,7 @@ A CFW console that connects to Nintendo's servers risks a ban. The usual protect
 127.0.0.1 *nintendoswitch.cn
 ```
 
-Use the stock (non-CFW) SysNAND for anything online. Don't copy saves or accounts between the two without understanding the consequences.
+This list is partial (Atmosphere's own list also covers regional `nintendo.*` domains); check Atmosphere's documentation for the full one. Use the stock (non-CFW) SysNAND for anything online. Don't copy saves or accounts between the two without understanding the consequences.
 
 ## 4. Updating firmware inside the emuMMC
 Boot **Karman (emuMMC)**, open **Daybreak** (`switch/daybreak.nro`), point it at a folder with the firmware files **you supply** (Karman doesn't include firmware), choose the install option. After a firmware update, update Karman too (Atmosphere must support that firmware).

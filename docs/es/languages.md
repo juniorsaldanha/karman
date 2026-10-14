@@ -13,7 +13,7 @@ Karman es compatible con **English**, **Português (BR)** y **Español**.
 | Parte | El idioma lo define |
 |---|---|
 | Interfaz de Ultrahand | El paquete Karman (arriba) o los ajustes propios de Ultrahand |
-| Sphaira, DBI, Goldleaf, Checkpoint, JKSV, juegos | El **idioma del sistema de la Switch** (Configuración → Sistema → Idioma) |
+| Sphaira, DBI, Goldleaf, Checkpoint, JKSV, juegos | Normalmente el **idioma del sistema de la Switch** (Configuración → Sistema → Idioma). No verificado en todas las apps: si una app tiene su propio ajuste de idioma, cámbialo allí |
 | Hekate / Nyx | Solo inglés: Hekate no tiene ajuste de idioma |
 
 Karman solo añade capas para otra app después de verificar su clave de configuración (mira [personalizar](customize.md)).

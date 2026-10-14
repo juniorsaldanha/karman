@@ -23,11 +23,11 @@ Verifique: abra o **Prompt de Comando** e rode `chkdsk X:` (troque `X:`). Deve m
 Verifique: `sudo fsck.vfat -v /dev/sdX1 | grep -E "bytes per cluster|FAT"` deve mostrar `32768 bytes per cluster`.
 
 ## macOS (Darwin)
-1. Encontre o cartão: `diskutil list external` e identifique pelo tamanho, ex.: `/dev/disk4` (**não** o disco interno).
-2. Apague como FAT32 com tabela MBR: `diskutil eraseDisk FAT32 KARMAN MBRFormat /dev/disk4`
-3. Opcional, forçar clusters de 32 KB: `diskutil unmountDisk /dev/disk4 && sudo newfs_msdos -F 32 -c 64 -v KARMAN /dev/rdisk4s1 && diskutil mount /dev/disk4s1`
+1. Encontre o cartão: `diskutil list external` e identifique pelo tamanho, ex.: `/dev/diskN` (**não** o disco interno). Nos comandos abaixo, troque o `N` de `diskN` por esse número.
+2. Apague como FAT32 com tabela MBR: `diskutil eraseDisk FAT32 KARMAN MBRFormat /dev/diskN`
+3. Opcional, forçar clusters de 32 KB: `diskutil unmountDisk /dev/diskN && sudo newfs_msdos -F 32 -c 64 -v KARMAN /dev/rdiskNs1 && diskutil mount /dev/diskNs1`
 
-Verifique: `diskutil info /dev/disk4s1 | grep -E "File System|Volume Name"` → `MS-DOS FAT32`, `KARMAN`.
+Verifique: `diskutil info /dev/diskNs1 | grep -E "File System|Volume Name"` → `MS-DOS FAT32`, `KARMAN`.
 
 ## Depois de formatar
 Extraia o zip do Karman na raiz do cartão e continue com o [como fazer](how-to.md). Se quiser um emuMMC em partição, decida agora: isso exige particionar o cartão (veja [emuMMC](emummc.md)).

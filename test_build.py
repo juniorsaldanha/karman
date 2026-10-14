@@ -4,6 +4,7 @@ import tempfile
 import unittest
 import urllib.error
 import zipfile
+from unittest import mock
 from pathlib import Path
 
 import build
@@ -57,6 +58,15 @@ class Core(unittest.TestCase):
                 build.install({"name": "a", "strip": 1}, z, t / "sd")
             self.assertFalse((t / "evil.txt").exists())
 
+    def test_install_empty_result_fails(self):
+        with tempfile.TemporaryDirectory() as t:
+            t = Path(t)
+            z = t / "a.zip"
+            with zipfile.ZipFile(z, "w") as zf:
+                zf.writestr("only/dir/", "")
+            with self.assertRaisesRegex(build.BuildError, "no files"):
+                build.install({"name": "a"}, z, t / "sd")
+
     def test_install_bad_zip_raises(self):
         with tempfile.TemporaryDirectory() as t:
             t = Path(t)
@@ -77,6 +87,33 @@ class RateLimit(unittest.TestCase):
                 build.api("repos/x/y/releases/latest")
         finally:
             build.http = real
+
+
+class Cache(unittest.TestCase):
+    comp = {"name": "p", "source": "github", "repo": "o/r", "asset": "a.nro", "pin": "rolling"}
+
+    def fetch(self, cache, stamp, body):
+        rel = {"tag_name": "rolling", "assets": [
+            {"name": "a.nro", "browser_download_url": "https://x/a.nro", "updated_at": stamp}]}
+        with mock.patch.object(build, "api", return_value=rel), \
+                mock.patch.object(build, "http", return_value=body):
+            return build.fetch_verified(self.comp, cache)[2]
+
+    def test_rolling_tag_refetched_when_asset_updated(self):
+        with tempfile.TemporaryDirectory() as t:
+            self.fetch(Path(t), "2026-01-01", b"v1")
+            self.assertEqual(self.fetch(Path(t), "2026-02-01", b"v2").read_bytes(), b"v2")
+
+    def test_same_asset_stamp_uses_cache(self):
+        with tempfile.TemporaryDirectory() as t:
+            self.fetch(Path(t), "2026-01-01", b"v1")
+            self.assertEqual(self.fetch(Path(t), "2026-01-01", b"other").read_bytes(), b"v1")
+
+    def test_empty_download_fails_and_is_not_cached(self):
+        with tempfile.TemporaryDirectory() as t:
+            with self.assertRaisesRegex(build.BuildError, r"^p: .*empty"):
+                self.fetch(Path(t), "s", b"")
+            self.assertEqual(self.fetch(Path(t), "s", b"ok").read_bytes(), b"ok")
 
 
 class Fetch(unittest.TestCase):
@@ -152,6 +189,32 @@ class Build(unittest.TestCase):
             a = self.run_build(root, "1.zip").read_bytes()
             b = self.run_build(root, "2.zip").read_bytes()
             self.assertEqual(a, b)
+
+    def test_base_wins_over_live_language_default(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            d = root / "base/config/ultrahand"
+            d.mkdir(parents=True)
+            (d / "config.ini").write_text("[ultrahand]\nkey_combo=custom\n")
+            z = zipfile.ZipFile(self.run_build(root))
+            self.assertIn("key_combo=custom", z.read("config/ultrahand/config.ini").decode())
+            self.assertIn("default_lang=ptbr", z.read("karman/lang/ptbr/config/ultrahand/config.ini").decode())
+
+    def test_entries_have_file_mode(self):
+        with tempfile.TemporaryDirectory() as t:
+            z = zipfile.ZipFile(self.run_build(make_root(t)))
+            self.assertTrue(all(i.external_attr >> 16 == 0o644 for i in z.infolist()))
+
+    def test_failed_build_removes_stale_zip_and_keeps_lock(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            self.run_build(root)
+            old_lock = (root / "lock.json").read_text()
+            (root / "fix/a.zip").write_bytes(b"not a zip")
+            with self.assertRaises(build.BuildError):
+                self.run_build(root)
+            self.assertFalse((root / "dist/out.zip").exists())
+            self.assertEqual((root / "lock.json").read_text(), old_lock)
 
     def test_missing_lang_fails_and_leaves_no_zip(self):
         with tempfile.TemporaryDirectory() as t:

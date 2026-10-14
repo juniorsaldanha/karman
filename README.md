@@ -20,7 +20,7 @@ Karman is a **build system**: it downloads the latest upstream releases, applies
 
 ## Build
 
-Requires Python 3.11+ (standard library only) and `tar`.
+Requires Python 3.11+ (standard library only) and **bsdtar** as `tar` (built into macOS; on Debian/Ubuntu install `libarchive-tools` and use `bsdtar`, GNU tar can't read the RetroArch `.7z`).
 
 ```sh
 export GITHUB_TOKEN=...        # optional but recommended: avoids GitHub's 60 requests/hour limit

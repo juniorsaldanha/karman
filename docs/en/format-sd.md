@@ -23,11 +23,11 @@ Verify: open **Command Prompt** and run `chkdsk X:` (replace `X:`). It must show
 Verify: `sudo fsck.vfat -v /dev/sdX1 | grep -E "bytes per cluster|FAT"` should show `32768 bytes per cluster`.
 
 ## macOS (Darwin)
-1. Find the card: `diskutil list external` and identify it by size, e.g. `/dev/disk4` (**not** your internal disk).
-2. Erase as FAT32 with an MBR table: `diskutil eraseDisk FAT32 KARMAN MBRFormat /dev/disk4`
-3. Optional, force 32 KB clusters: `diskutil unmountDisk /dev/disk4 && sudo newfs_msdos -F 32 -c 64 -v KARMAN /dev/rdisk4s1 && diskutil mount /dev/disk4s1`
+1. Find the card: `diskutil list external` and identify it by size, e.g. `/dev/diskN` (**not** your internal disk). In the commands below, replace `N` in `diskN` with that number.
+2. Erase as FAT32 with an MBR table: `diskutil eraseDisk FAT32 KARMAN MBRFormat /dev/diskN`
+3. Optional, force 32 KB clusters: `diskutil unmountDisk /dev/diskN && sudo newfs_msdos -F 32 -c 64 -v KARMAN /dev/rdiskNs1 && diskutil mount /dev/diskNs1`
 
-Verify: `diskutil info /dev/disk4s1 | grep -E "File System|Volume Name"` → `MS-DOS FAT32`, `KARMAN`.
+Verify: `diskutil info /dev/diskNs1 | grep -E "File System|Volume Name"` → `MS-DOS FAT32`, `KARMAN`.
 
 ## After formatting
 Extract the Karman zip to the card root and continue with the [how-to](how-to.md). If you want a partition-based emuMMC, decide now: it requires partitioning the card (see [emuMMC](emummc.md)).

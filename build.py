@@ -37,6 +37,7 @@ def api(path):
     try:
         return json.loads(http(f"https://api.github.com/{path}", h))
     except urllib.error.HTTPError as e:
+        e.close()
         if e.code in (403, 429):
             raise BuildError("GitHub API rate limit hit; set GITHUB_TOKEN (e.g. GITHUB_TOKEN=$(gh auth token)) and retry") from e
         raise
@@ -55,7 +56,7 @@ def install(c, f, stage):
     kind = c.get("kind", "zip" if f.suffix == ".zip" else "file")
     exclude = c.get("exclude", [])
     if kind == "zip":
-        strip, root = c.get("strip", 0), dest.resolve()
+        strip, root, wrote = c.get("strip", 0), dest.resolve(), 0
         with zipfile.ZipFile(f) as z:
             for info in z.infolist():
                 rel = "/".join(info.filename.split("/")[strip:])
@@ -66,6 +67,9 @@ def install(c, f, stage):
                     raise BuildError(f"unsafe path in archive: {info.filename}")
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(z.read(info))
+                wrote += 1
+        if not wrote:
+            raise BuildError("archive produced no files (wrong strip/exclude?)")
     elif kind == "7z":  # ponytail: needs bsdtar (macOS/most Linux); py7zr if it ever fails
         ex = [f"--exclude={p}" for p in exclude]
         subprocess.run(["tar", "-xf", str(f), "-C", str(dest), *ex], check=True)
@@ -78,24 +82,31 @@ def resolve(c):
     if src == "github":
         ref = f"tags/{c['pin']}" if "pin" in c else "latest"
         rel = api(f"repos/{c['repo']}/releases/{ref}")
-        assets = {a["name"]: a["browser_download_url"] for a in rel["assets"]}
+        assets = {a["name"]: a for a in rel["assets"]}
         name = pick_asset(list(assets), c["asset"])
-        return rel["tag_name"], name, assets[name]
+        return rel["tag_name"], name, assets[name]["browser_download_url"], assets[name].get("updated_at", "")
     if src == "url":
-        return "url", Path(c["url"]).name, c["url"]
+        return "url", Path(c["url"]).name, c["url"], ""
     if src == "local":
-        return "local", Path(c["path"]).name, c["path"]
+        return "local", Path(c["path"]).name, c["path"], ""
+
     raise BuildError(f"unknown source {src!r}")
 
 
-def fetch(c, url, name, cache):
+def fetch(c, url, name, cache, stamp=""):
     if c["source"] == "local":
         return Path(url)
-    dest = cache / hashlib.sha256(url.encode()).hexdigest()[:16] / name
-    if c["source"] == "github" and dest.exists():  # asset URLs embed the tag: never stale
+    # key includes the asset's updated_at, so a rolling tag (same URL, new bytes) is refetched
+    dest = cache / hashlib.sha256((url + stamp).encode()).hexdigest()[:16] / name
+    if c["source"] == "github" and dest.exists():
         return dest
+    data = http(url)
+    if not data:
+        raise BuildError(f"empty download from {url}")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_bytes(http(url))
+    tmp = dest.with_name(dest.name + ".part")
+    tmp.write_bytes(data)
+    tmp.replace(dest)  # atomic: an interrupted download never poisons the cache
     return dest
 
 
@@ -105,8 +116,10 @@ def sha256(p):
 
 def fetch_verified(c, cache):
     try:
-        tag, name, url = resolve(c)
-        f = fetch(c, url, name, cache)
+        tag, name, url, stamp = resolve(c)
+        f = fetch(c, url, name, cache, stamp)
+        if f.stat().st_size == 0:
+            raise BuildError(f"{f.name} is empty")
         digest = sha256(f)
         if c.get("sha256", digest) != digest:
             raise BuildError(f"sha256 mismatch: expected {c['sha256']}, got {digest}")
@@ -119,9 +132,9 @@ def apply_overlays(root, stage):
     for l in LANGS:
         if not (root / "lang" / l).is_dir():
             raise BuildError(f"missing lang/{l}")
-    if (root / "base").is_dir():
-        shutil.copytree(root / "base", stage, dirs_exist_ok=True)
     shutil.copytree(root / "lang/en", stage, dirs_exist_ok=True)  # en is the live default
+    if (root / "base").is_dir():  # last, so the user's files win
+        shutil.copytree(root / "base", stage, dirs_exist_ok=True)
     for l in LANGS:
         shutil.copytree(root / "lang" / l, stage / "karman/lang" / l, dirs_exist_ok=True)
 
@@ -145,17 +158,22 @@ def write_lang_package(stage):
 def write_zip(stage, out):
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp")
-    with zipfile.ZipFile(tmp, "w") as z:
-        for p in sorted(stage.rglob("*")):
-            if p.is_file():
-                zi = zipfile.ZipInfo(p.relative_to(stage).as_posix(), (1980, 1, 1, 0, 0, 0))
-                zi.compress_type = zipfile.ZIP_DEFLATED
-                z.writestr(zi, p.read_bytes())
-    tmp.replace(out)
+    try:
+        with zipfile.ZipFile(tmp, "w") as z:
+            for p in sorted(stage.rglob("*")):
+                if p.is_file():
+                    zi = zipfile.ZipInfo(p.relative_to(stage).as_posix(), (1980, 1, 1, 0, 0, 0))
+                    zi.compress_type = zipfile.ZIP_DEFLATED
+                    zi.external_attr = 0o644 << 16
+                    z.writestr(zi, p.read_bytes())
+        tmp.replace(out)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 def build(root, manifest, out, cache):
     comps = tomllib.loads(manifest.read_text())["component"]
+    out.unlink(missing_ok=True)  # a failed build must not leave an older zip looking current
     lock = {}
     with tempfile.TemporaryDirectory() as tmp:
         stage = Path(tmp) / "sd"
@@ -170,10 +188,10 @@ def build(root, manifest, out, cache):
         apply_overlays(root, stage)
         write_lang_package(stage)
         text = json.dumps(lock, indent=2, sort_keys=True) + "\n"
-        (root / "lock.json").write_text(text)
         (stage / "karman").mkdir(exist_ok=True)
         (stage / "karman/lock.json").write_text(text)
         write_zip(stage, out)
+        (root / "lock.json").write_text(text)
     return out
 
 

@@ -43,7 +43,7 @@ Una consola con CFW que se conecta a los servidores de Nintendo corre riesgo de 
 127.0.0.1 *nintendoswitch.cn
 ```
 
-Usa la SysNAND original (sin CFW) para todo lo que sea en línea. No copies partidas ni cuentas entre las dos sin entender las consecuencias.
+Esta lista es parcial (la del propio Atmosphere también cubre dominios regionales `nintendo.*`); consulta la documentación de Atmosphere para la lista completa. Usa la SysNAND original (sin CFW) para todo lo que sea en línea. No copies partidas ni cuentas entre las dos sin entender las consecuencias.
 
 ## 4. Actualizar el firmware dentro del emuMMC
 Arranca **Karman (emuMMC)**, abre **Daybreak** (`switch/daybreak.nro`), apúntalo a una carpeta con los archivos de firmware que **tú proporcionas** (Karman no incluye firmware) y elige la opción de instalar. Tras actualizar el firmware, actualiza también Karman (Atmosphere debe ser compatible con ese firmware).
