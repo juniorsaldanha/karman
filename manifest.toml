@@ -3,6 +3,11 @@
 # strip: drop N leading path components of a zip. exclude: fnmatch globs (relative to dest) to skip.
 # Add sha256 = "..." to any entry to pin its exact bytes.
 
+# On-console updater. repo: GitHub "owner/name" whose latest release carries karman-update.zip.
+# firmware_url (optional): a firmware zip URL YOU supply; Karman ships none. Leave unset to omit the entry.
+[release]
+repo = "juniorsaldanha/karman"
+
 [[component]]
 name = "atmosphere"
 source = "github"
