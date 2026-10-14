@@ -26,7 +26,7 @@ O Karman **não** inclui chaves, firmware, jogos nem sigpatches. Use só os seus
 - **Ports:** o DevilutionX precisa do `DIABDAT.MPQ` na pasta dele; o Perfect Dark precisa da sua ROM em `switch/perfectdark/data/`; o RetroArch precisa dos cores via *Online Updater → Core Downloader*.
 
 ## Atualizando o Karman
-Baixe ou gere um zip mais novo e extraia por cima do cartão (sobrescrevendo). Seus saves, emuMMC e jogos não são afetados. Extrair de novo também redefine arquivos que o Karman gerencia (`bootloader/hekate_ipl.ini`, `config.ini` do Ultrahand); coloque seus ajustes em `base/` ([personalizar](customize.md)) e gere de novo.
+No console, sem computador: veja [atualizando](updating.md). Pelo computador: baixe ou gere um zip mais novo e extraia por cima do cartão (sobrescrevendo). Seus saves, emuMMC e jogos não são afetados. Extrair de novo também redefine arquivos que o Karman gerencia (`bootloader/hekate_ipl.ini`, `config.ini` do Ultrahand); coloque seus ajustes em `base/` ([personalizar](customize.md)) e gere de novo.
 
 ## Solução de problemas
 | Problema | Solução |
