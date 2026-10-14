@@ -96,3 +96,81 @@ def fetch_verified(c, cache):
         return tag, name, f, digest
     except Exception as e:
         raise BuildError(f"{c['name']}: {e}") from e
+
+
+def apply_overlays(root, stage):
+    for l in LANGS:
+        if not (root / "lang" / l).is_dir():
+            raise BuildError(f"missing lang/{l}")
+    if (root / "base").is_dir():
+        shutil.copytree(root / "base", stage, dirs_exist_ok=True)
+    shutil.copytree(root / "lang/en", stage, dirs_exist_ok=True)  # en is the live default
+    for l in LANGS:
+        shutil.copytree(root / "lang" / l, stage / "karman/lang" / l, dirs_exist_ok=True)
+
+
+def write_lang_package(stage):
+    # ponytail: whole-file copy resets other Ultrahand settings (combo, theme);
+    # switch to an ini-edit command if Ultrahand exposes one.
+    lines = []
+    for l, title in LANGS.items():
+        base = stage / "karman/lang" / l
+        lines.append(f"[{title}]")
+        for f in sorted(p for p in base.rglob("*") if p.is_file()):
+            rel = f.relative_to(base)
+            lines.append(f"copy /karman/lang/{l}/{rel.as_posix()} /{rel.parent.as_posix()}/")
+        lines.append("")
+    pkg = stage / "switch/.packages/Karman"
+    pkg.mkdir(parents=True, exist_ok=True)
+    (pkg / "package.ini").write_text("\n".join(lines), encoding="utf-8")
+
+
+def write_zip(stage, out):
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp")
+    with zipfile.ZipFile(tmp, "w") as z:
+        for p in sorted(stage.rglob("*")):
+            if p.is_file():
+                zi = zipfile.ZipInfo(p.relative_to(stage).as_posix(), (1980, 1, 1, 0, 0, 0))
+                zi.compress_type = zipfile.ZIP_DEFLATED
+                z.writestr(zi, p.read_bytes())
+    tmp.replace(out)
+
+
+def build(root, manifest, out, cache):
+    comps = tomllib.loads(manifest.read_text())["component"]
+    lock = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        stage = Path(tmp) / "sd"
+        stage.mkdir()
+        for c in comps:
+            tag, name, f, digest = fetch_verified(c, cache)
+            try:
+                install(c, f, stage)
+            except Exception as e:
+                raise BuildError(f"{c['name']}: {e}") from e
+            lock[c["name"]] = {"tag": tag, "asset": name, "sha256": digest}
+        apply_overlays(root, stage)
+        write_lang_package(stage)
+        text = json.dumps(lock, indent=2, sort_keys=True) + "\n"
+        (root / "lock.json").write_text(text)
+        (stage / "karman").mkdir(exist_ok=True)
+        (stage / "karman/lock.json").write_text(text)
+        write_zip(stage, out)
+    return out
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Build the Karman SD-card zip")
+    ap.add_argument("--version", default=datetime.date.today().strftime("%Y.%m.%d"))
+    ap.add_argument("--manifest", default=ROOT / "manifest.toml", type=Path)
+    ap.add_argument("--out", default=ROOT / "dist", type=Path)
+    a = ap.parse_args(argv)
+    try:
+        print(build(ROOT, a.manifest, a.out / f"karman-{a.version}.zip", ROOT / ".cache"))
+    except BuildError as e:
+        raise SystemExit(f"build failed: {e}")
+
+
+if __name__ == "__main__":
+    main()
