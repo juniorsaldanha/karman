@@ -1,6 +1,8 @@
+import io
 import json
 import tempfile
 import unittest
+import urllib.error
 import zipfile
 from pathlib import Path
 
@@ -31,6 +33,30 @@ class Core(unittest.TestCase):
             self.assertTrue((stage / "atmosphere/x.txt").is_file())
             self.assertTrue((stage / "switch/b/b.nro").is_file())
 
+    def test_install_zip_strip_and_exclude(self):
+        with tempfile.TemporaryDirectory() as t:
+            t = Path(t)
+            z = t / "a.zip"
+            with zipfile.ZipFile(z, "w") as zf:
+                zf.writestr("SdOut/atmosphere/x.txt", "x")
+                zf.writestr("SdOut/retroarch/cores/big.nro", "big")
+                zf.writestr("SdOut/retroarch/keep.txt", "k")
+                zf.writestr("top.jpg", "stray")
+            stage = t / "sd"
+            build.install({"name": "a", "strip": 1, "exclude": ["retroarch/cores/*"]}, z, stage)
+            got = sorted(p.relative_to(stage).as_posix() for p in stage.rglob("*") if p.is_file())
+            self.assertEqual(got, ["atmosphere/x.txt", "retroarch/keep.txt"])
+
+    def test_install_zip_slip_rejected(self):
+        with tempfile.TemporaryDirectory() as t:
+            t = Path(t)
+            z = t / "a.zip"
+            with zipfile.ZipFile(z, "w") as zf:
+                zf.writestr("x/../../evil.txt", "evil")
+            with self.assertRaises(build.BuildError):
+                build.install({"name": "a", "strip": 1}, z, t / "sd")
+            self.assertFalse((t / "evil.txt").exists())
+
     def test_install_bad_zip_raises(self):
         with tempfile.TemporaryDirectory() as t:
             t = Path(t)
@@ -38,6 +64,19 @@ class Core(unittest.TestCase):
             z.write_bytes(b"not a zip")
             with self.assertRaises(Exception):
                 build.install({"name": "a"}, z, t / "sd")
+
+
+class RateLimit(unittest.TestCase):
+    def test_403_hints_at_github_token(self):
+        def boom(url, headers=None):
+            raise urllib.error.HTTPError(url, 403, "rate limit exceeded", {}, io.BytesIO())
+
+        real, build.http = build.http, boom
+        try:
+            with self.assertRaisesRegex(build.BuildError, "GITHUB_TOKEN"):
+                build.api("repos/x/y/releases/latest")
+        finally:
+            build.http = real
 
 
 class Fetch(unittest.TestCase):

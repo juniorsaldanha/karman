@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import tempfile
 import tomllib
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -33,7 +34,12 @@ def api(path):
     h = {"Accept": "application/vnd.github+json"}
     if tok := os.environ.get("GITHUB_TOKEN"):  # only ever sent to api.github.com
         h["Authorization"] = f"Bearer {tok}"
-    return json.loads(http(f"https://api.github.com/{path}", h))
+    try:
+        return json.loads(http(f"https://api.github.com/{path}", h))
+    except urllib.error.HTTPError as e:
+        if e.code in (403, 429):
+            raise BuildError("GitHub API rate limit hit; set GITHUB_TOKEN (e.g. GITHUB_TOKEN=$(gh auth token)) and retry") from e
+        raise
 
 
 def pick_asset(names, pattern):
@@ -47,11 +53,22 @@ def install(c, f, stage):
     dest = stage / c.get("dest", "").strip("/")
     dest.mkdir(parents=True, exist_ok=True)
     kind = c.get("kind", "zip" if f.suffix == ".zip" else "file")
+    exclude = c.get("exclude", [])
     if kind == "zip":
+        strip, root = c.get("strip", 0), dest.resolve()
         with zipfile.ZipFile(f) as z:
-            z.extractall(dest)  # zipfile strips absolute paths and '..'
+            for info in z.infolist():
+                rel = "/".join(info.filename.split("/")[strip:])
+                if info.is_dir() or not rel or any(fnmatch.fnmatch(rel, p) for p in exclude):
+                    continue
+                target = (root / rel).resolve()
+                if not target.is_relative_to(root):
+                    raise BuildError(f"unsafe path in archive: {info.filename}")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(z.read(info))
     elif kind == "7z":  # ponytail: needs bsdtar (macOS/most Linux); py7zr if it ever fails
-        subprocess.run(["tar", "-xf", str(f), "-C", str(dest)], check=True)
+        ex = [f"--exclude={p}" for p in exclude]
+        subprocess.run(["tar", "-xf", str(f), "-C", str(dest), *ex], check=True)
     else:
         shutil.copy2(f, dest / c.get("rename", f.name))
 

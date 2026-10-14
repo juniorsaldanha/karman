@@ -1,5 +1,6 @@
 # Karman components. source: github (repo + asset glob, latest or `pin` tag) | url.
 # dest: SD-root-relative directory. kind: zip (default for .zip) | 7z | file.
+# strip: drop N leading path components of a zip. exclude: fnmatch globs (relative to dest) to skip.
 # Add sha256 = "..." to any entry to pin its exact bytes.
 
 [[component]]
@@ -93,6 +94,7 @@ name = "emuiibo"
 source = "github"
 repo = "XorTroll/emuiibo"
 asset = "emuiibo.zip"
+strip = 1  # zip nests everything under SdOut/
 
 [[component]]
 name = "sys-ftpd-light"
@@ -120,10 +122,14 @@ source = "github"
 repo = "fgsfdsfgs/perfect_dark"
 pin = "ci-dev-build"
 asset = "pd-arm64-nswitch.zip"
-dest = "switch/perfect_dark"
+strip = 1
+dest = "switch"
 
 [[component]]
 name = "retroarch"
 source = "url"
 url = "https://buildbot.libretro.com/nightly/nintendo/switch/libnx/RetroArch.7z"
 kind = "7z"
+# Frontend + assets/shaders only: the nightly bundles ~140 cores, database and overlays (1+ GB).
+# Get the rest in-app: Online Updater > Core Downloader / Content Updater.
+exclude = ["retroarch/cores/*", "retroarch/database/*", "retroarch/overlays/*", "retroarch.jpg"]
