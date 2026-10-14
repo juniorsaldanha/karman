@@ -7,6 +7,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -19,7 +20,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 LANGS = {"en": "English", "ptbr": "Português (BR)", "es": "Español"}
 # edited by the user, so the on-console update zip must never overwrite them
-USER_OWNED = ("bootloader/hekate_ipl.ini", "config/ultrahand/config.ini")
+USER_OWNED = (
+    "bootloader/hekate_ipl.ini",
+    "config/ultrahand/config.ini",
+    "config/sys-ftpd/config.ini",  # port + password
+    "config/Fizeau/config.ini",
+)
 
 
 class BuildError(Exception):
@@ -152,6 +158,7 @@ def update_sections(release):
         out += [
             "[Update Karman (reboot after)]",
             f"delete {DL}/{UPDATE_ASSET}",
+            f"delete {DL}/karman-update/",  # leftovers from an interrupted run must not mix in
             f"download {url} {DL}/{UPDATE_ASSET}",
             f"unzip {DL}/{UPDATE_ASSET} {DL}/karman-update/",
             f"move {DL}/karman-update/ /",
@@ -203,20 +210,31 @@ def write_zip(stage, out, skip=()):
         tmp.unlink(missing_ok=True)
 
 
+RELEASE_KEYS = ("repo", "firmware_url")
+REPO_RE = re.compile(r"[\w.-]+/[\w.-]+")
+URL_RE = re.compile(r"https://[^\s\[\];]+")  # these values are written into package.ini lines
+
+
 def release_cfg(data):
     r = data.get("release", {})
-    for k in ("repo", "firmware_url"):
-        if k in r and not isinstance(r[k], str):
-            raise BuildError(f"[release] {k} must be a string")
+    if not isinstance(r, dict):
+        raise BuildError("[release] must be a table")
+    for k in r:
+        if k not in RELEASE_KEYS:
+            raise BuildError(f"[release] unknown key {k!r} (allowed: {', '.join(RELEASE_KEYS)})")
+    if "repo" in r and not (isinstance(r["repo"], str) and REPO_RE.fullmatch(r["repo"])):
+        raise BuildError('[release] repo must look like "owner/name"')
+    if "firmware_url" in r and not (isinstance(r["firmware_url"], str) and URL_RE.fullmatch(r["firmware_url"])):
+        raise BuildError("[release] firmware_url must be an https:// URL without spaces, [ ] or ;")
     return r
 
 
 def build(root, manifest, out, cache, version="dev"):
-    data = tomllib.loads(manifest.read_text())
-    comps, release = data["component"], release_cfg(data)
     update = out.with_name("karman-update.zip")
     for z in (out, update):
-        z.unlink(missing_ok=True)  # a failed build must not leave an older zip looking current
+        z.unlink(missing_ok=True)  # first, so ANY failure below leaves no older zip looking current
+    data = tomllib.loads(manifest.read_text())
+    comps, release = data["component"], release_cfg(data)
     lock = {}
     with tempfile.TemporaryDirectory() as tmp:
         stage = Path(tmp) / "sd"
@@ -234,8 +252,13 @@ def build(root, manifest, out, cache, version="dev"):
         (stage / "karman").mkdir(exist_ok=True)
         (stage / "karman/lock.json").write_text(text)
         (stage / "karman/version.txt").write_text(version + "\n")
-        write_zip(stage, out)
-        write_zip(stage, update, skip=USER_OWNED)
+        try:
+            write_zip(stage, out)
+            write_zip(stage, update, skip=USER_OWNED)
+        except BaseException:
+            for z in (out, update):  # never ship half a release
+                z.unlink(missing_ok=True)
+            raise
         (root / "lock.json").write_text(text)
     return out
 

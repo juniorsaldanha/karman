@@ -136,8 +136,13 @@ class Update(unittest.TestCase):
             add_base(root)
             full = set(zipfile.ZipFile(self.run_build(root)).namelist())
             upd = set(zipfile.ZipFile(root / "dist/karman-update.zip").namelist())
-            self.assertEqual(full - upd, set(build.USER_OWNED))
+            self.assertEqual(full - upd, set(build.USER_OWNED) & full)
+            self.assertTrue({"bootloader/hekate_ipl.ini", "config/ultrahand/config.ini"} <= full - upd)
             self.assertEqual(upd - full, set())
+
+    def test_user_edited_configs_are_user_owned(self):
+        for f in ("config/sys-ftpd/config.ini", "config/Fizeau/config.ini"):
+            self.assertIn(f, build.USER_OWNED)
 
     def test_update_zip_deterministic(self):
         with tempfile.TemporaryDirectory() as t:
@@ -172,6 +177,62 @@ class Update(unittest.TestCase):
             self.assertFalse((root / "dist/karman-update.zip").exists())
 
 
+class Hardening(unittest.TestCase):
+    def run_build(self, root, name="out.zip"):
+        return build.build(root, root / "manifest.toml", root / "dist" / name, root / ".cache")
+
+    def test_bad_release_leaves_no_stale_zips(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            self.run_build(root)
+            with_release(root, "[release]\nrepo = 5")
+            with self.assertRaises(build.BuildError):
+                self.run_build(root)
+            self.assertFalse((root / "dist/out.zip").exists())
+            self.assertFalse((root / "dist/karman-update.zip").exists())
+
+    def test_release_values_are_validated(self):
+        bad = [
+            ('repo = "a b/c"', "repo"), ('repo = "no-slash"', "repo"), ('repo = ""', "repo"),
+            ('repo = "o/r\\nmove / /x"', "repo"),
+            ('firmware_url = "http://x/f.zip"', "firmware_url"),
+            ('firmware_url = "https://x/f.zip\\nmove / /x"', "firmware_url"),
+            ('firmware_url = "https://x y/f.zip"', "firmware_url"),
+            ('firmware_url = 5', "firmware_url"),
+            ('repository = "o/r"', "repository"),
+        ]
+        for line, key in bad:
+            with self.subTest(line):
+                with tempfile.TemporaryDirectory() as t:
+                    root = make_root(t)
+                    with_release(root, "[release]\n" + line)
+                    with self.assertRaisesRegex(build.BuildError, key):
+                        self.run_build(root)
+
+    def test_release_must_be_a_table(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            with_release(root, "release = 5")
+            with self.assertRaisesRegex(build.BuildError, "release"):
+                self.run_build(root)
+
+    def test_second_zip_failure_removes_first(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            real, calls = build.write_zip, []
+
+            def flaky(stage, out, skip=()):
+                calls.append(out)
+                if len(calls) == 2:
+                    raise OSError("disk full")
+                return real(stage, out, skip)
+
+            with mock.patch.object(build, "write_zip", flaky):
+                with self.assertRaises(OSError):
+                    self.run_build(root)
+            self.assertFalse((root / "dist/out.zip").exists())
+
+
 class Package(unittest.TestCase):
     def pkg(self, release_toml=""):
         with tempfile.TemporaryDirectory() as t:
@@ -184,9 +245,10 @@ class Package(unittest.TestCase):
     def test_update_section_when_repo_set(self):
         lines = self.pkg('[release]\nrepo = "o/r"').splitlines()
         dl = "/config/ultrahand/downloads"
-        self.assertEqual(lines[:7], [
+        self.assertEqual(lines[:8], [
             "[Update Karman (reboot after)]",
             f"delete {dl}/karman-update.zip",
+            f"delete {dl}/karman-update/",
             f"download https://github.com/o/r/releases/latest/download/karman-update.zip {dl}/karman-update.zip",
             f"unzip {dl}/karman-update.zip {dl}/karman-update/",
             f"move {dl}/karman-update/ /",
