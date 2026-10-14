@@ -141,10 +141,39 @@ def apply_overlays(root, stage):
         shutil.copytree(root / "lang" / l, stage / "karman/lang" / l, dirs_exist_ok=True)
 
 
-def write_lang_package(stage):
+UPDATE_ASSET = "karman-update.zip"
+DL = "/config/ultrahand/downloads"
+
+
+def update_sections(release):
+    out = []
+    if repo := release.get("repo"):
+        url = f"https://github.com/{repo}/releases/latest/download/{UPDATE_ASSET}"
+        out += [
+            "[Update Karman (reboot after)]",
+            f"delete {DL}/{UPDATE_ASSET}",
+            f"download {url} {DL}/{UPDATE_ASSET}",
+            f"unzip {DL}/{UPDATE_ASSET} {DL}/karman-update/",
+            f"move {DL}/karman-update/ /",
+            f"delete {DL}/{UPDATE_ASSET}",
+            "",
+        ]
+    if fw := release.get("firmware_url"):
+        out += [
+            "[Download firmware (then open Daybreak)]",
+            f"delete {DL}/firmware.zip",
+            f"download {fw} {DL}/firmware.zip",
+            f"unzip {DL}/firmware.zip /firmware/",
+            f"delete {DL}/firmware.zip",
+            "",
+        ]
+    return out
+
+
+def write_package(stage, release=None):
     # ponytail: whole-file copy resets other Ultrahand settings (combo, theme);
     # switch to an ini-edit command if Ultrahand exposes one.
-    lines = []
+    lines = update_sections(release or {})
     for l, title in LANGS.items():
         base = stage / "karman/lang" / l
         lines.append(f"[{title}]")
@@ -200,7 +229,7 @@ def build(root, manifest, out, cache, version="dev"):
                 raise BuildError(f"{c['name']}: {e}") from e
             lock[c["name"]] = {"tag": tag, "asset": name, "sha256": digest}
         apply_overlays(root, stage)
-        write_lang_package(stage)
+        write_package(stage, release)
         text = json.dumps(lock, indent=2, sort_keys=True) + "\n"
         (stage / "karman").mkdir(exist_ok=True)
         (stage / "karman/lock.json").write_text(text)

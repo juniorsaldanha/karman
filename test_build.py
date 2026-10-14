@@ -172,6 +172,47 @@ class Update(unittest.TestCase):
             self.assertFalse((root / "dist/karman-update.zip").exists())
 
 
+class Package(unittest.TestCase):
+    def pkg(self, release_toml=""):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            if release_toml:
+                with_release(root, release_toml)
+            z = zipfile.ZipFile(build.build(root, root / "manifest.toml", root / "dist/o.zip", root / ".cache"))
+            return z.read("switch/.packages/Karman/package.ini").decode()
+
+    def test_update_section_when_repo_set(self):
+        lines = self.pkg('[release]\nrepo = "o/r"').splitlines()
+        dl = "/config/ultrahand/downloads"
+        self.assertEqual(lines[:7], [
+            "[Update Karman (reboot after)]",
+            f"delete {dl}/karman-update.zip",
+            f"download https://github.com/o/r/releases/latest/download/karman-update.zip {dl}/karman-update.zip",
+            f"unzip {dl}/karman-update.zip {dl}/karman-update/",
+            f"move {dl}/karman-update/ /",
+            f"delete {dl}/karman-update.zip",
+            "",
+        ])
+
+    def test_no_update_section_without_repo(self):
+        p = self.pkg()
+        self.assertNotIn("Update Karman", p)
+        self.assertNotIn("github.com", p)
+        self.assertIn("[English]", p)  # language entries unaffected
+
+    def test_firmware_section_only_with_url(self):
+        self.assertNotIn("firmware", self.pkg('[release]\nrepo = "o/r"').lower())
+        p = self.pkg('[release]\nrepo = "o/r"\nfirmware_url = "https://example.com/fw.zip"')
+        self.assertIn("[Download firmware (then open Daybreak)]", p)
+        self.assertIn("download https://example.com/fw.zip /config/ultrahand/downloads/firmware.zip", p)
+        self.assertIn("unzip /config/ultrahand/downloads/firmware.zip /firmware/", p)
+
+    def test_firmware_url_alone_does_not_need_repo(self):
+        p = self.pkg('[release]\nfirmware_url = "https://example.com/fw.zip"')
+        self.assertIn("Download firmware", p)
+        self.assertNotIn("Update Karman", p)
+
+
 class Fetch(unittest.TestCase):
     def local(self, t, **extra):
         f = Path(t) / "b.nro"
