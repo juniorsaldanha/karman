@@ -18,6 +18,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 LANGS = {"en": "English", "ptbr": "Português (BR)", "es": "Español"}
+# edited by the user, so the on-console update zip must never overwrite them
+USER_OWNED = ("bootloader/hekate_ipl.ini", "config/ultrahand/config.ini")
 
 
 class BuildError(Exception):
@@ -155,14 +157,15 @@ def write_lang_package(stage):
     (pkg / "package.ini").write_text("\n".join(lines), encoding="utf-8")
 
 
-def write_zip(stage, out):
+def write_zip(stage, out, skip=()):
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_suffix(".tmp")
     try:
         with zipfile.ZipFile(tmp, "w") as z:
             for p in sorted(stage.rglob("*")):
-                if p.is_file():
-                    zi = zipfile.ZipInfo(p.relative_to(stage).as_posix(), (1980, 1, 1, 0, 0, 0))
+                rel = p.relative_to(stage).as_posix()
+                if p.is_file() and rel not in skip:
+                    zi = zipfile.ZipInfo(rel, (1980, 1, 1, 0, 0, 0))
                     zi.compress_type = zipfile.ZIP_DEFLATED
                     zi.external_attr = 0o644 << 16
                     z.writestr(zi, p.read_bytes())
@@ -171,9 +174,20 @@ def write_zip(stage, out):
         tmp.unlink(missing_ok=True)
 
 
-def build(root, manifest, out, cache):
-    comps = tomllib.loads(manifest.read_text())["component"]
-    out.unlink(missing_ok=True)  # a failed build must not leave an older zip looking current
+def release_cfg(data):
+    r = data.get("release", {})
+    for k in ("repo", "firmware_url"):
+        if k in r and not isinstance(r[k], str):
+            raise BuildError(f"[release] {k} must be a string")
+    return r
+
+
+def build(root, manifest, out, cache, version="dev"):
+    data = tomllib.loads(manifest.read_text())
+    comps, release = data["component"], release_cfg(data)
+    update = out.with_name("karman-update.zip")
+    for z in (out, update):
+        z.unlink(missing_ok=True)  # a failed build must not leave an older zip looking current
     lock = {}
     with tempfile.TemporaryDirectory() as tmp:
         stage = Path(tmp) / "sd"
@@ -190,7 +204,9 @@ def build(root, manifest, out, cache):
         text = json.dumps(lock, indent=2, sort_keys=True) + "\n"
         (stage / "karman").mkdir(exist_ok=True)
         (stage / "karman/lock.json").write_text(text)
+        (stage / "karman/version.txt").write_text(version + "\n")
         write_zip(stage, out)
+        write_zip(stage, update, skip=USER_OWNED)
         (root / "lock.json").write_text(text)
     return out
 
@@ -202,7 +218,7 @@ def main(argv=None):
     ap.add_argument("--out", default=ROOT / "dist", type=Path)
     a = ap.parse_args(argv)
     try:
-        print(build(ROOT, a.manifest, a.out / f"karman-{a.version}.zip", ROOT / ".cache"))
+        print(build(ROOT, a.manifest, a.out / f"karman-{a.version}.zip", ROOT / ".cache", a.version))
     except BuildError as e:
         raise SystemExit(f"build failed: {e}")
 
