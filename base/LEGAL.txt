@@ -1,0 +1,19 @@
+KARMAN - LEGAL NOTICE / AVISO LEGAL / AVISO LEGAL
+
+== English ==
+Karman is a build system that assembles publicly released homebrew software for the Nintendo Switch. It ships no keys, firmware, games, ROMs or sigpatches, and no tool whose purpose is to run pirated content. Its purpose is to let users run homebrew.
+Karman claims no rights over the files in this pack: all credit belongs to their authors and each project keeps its own license. If an owner asks for a file to be removed, it will be removed.
+Using this software for anything else, such as running backups of games, may be restricted or prohibited by the law of your country. You are responsible for knowing and following your local law and for owning every game you copy. Use is at your own risk, including the risk of a console ban when going online with CFW.
+Support game developers.
+
+== Português (BR) ==
+O Karman é um sistema de build que reúne softwares homebrew publicados para o Nintendo Switch. Ele não inclui chaves, firmware, jogos, ROMs nem sigpatches, e nenhuma ferramenta cujo propósito seja rodar conteúdo pirata. Seu propósito é permitir o uso de homebrews.
+O Karman não detém direitos sobre os arquivos deste pacote: todo o crédito pertence aos seus autores e cada projeto mantém a sua licença. Se um proprietário pedir a remoção de um arquivo, ele será removido.
+Usar este software para outro fim, como rodar cópias (backup) de jogos, pode ser restrito ou proibido pela legislação do seu país. Você é responsável por conhecer e cumprir a legislação local e por ser dono de todo jogo que copiar. O uso é por sua conta e risco, inclusive o risco de banimento do console ao ficar online com CFW.
+Apoie os desenvolvedores de jogos.
+
+== Español ==
+Karman es un sistema de build que reúne software homebrew publicado para la Nintendo Switch. No incluye claves, firmware, juegos, ROMs ni sigpatches, ni ninguna herramienta cuyo propósito sea ejecutar contenido pirata. Su propósito es permitir el uso de homebrews.
+Karman no tiene derechos sobre los archivos de este paquete: todo el crédito pertenece a sus autores y cada proyecto conserva su licencia. Si un propietario pide retirar un archivo, se retirará.
+Usar este software con otro fin, como ejecutar copias (backup) de juegos, puede estar restringido o prohibido por la ley de tu país. Eres responsable de conocer y cumplir tu ley local y de ser dueño de cada juego que copies. El uso es bajo tu propio riesgo, incluido el riesgo de baneo de la consola al conectarte con CFW.
+Apoya a los desarrolladores de juegos.

@@ -27,23 +27,13 @@ Guarda o emuMMC como arquivos na partição FAT32, em partes de 4 GB.
 Depois, **Nyx → emuMMC → Change emuMMC** mostra e seleciona o ativo. Inicie **Karman (emuMMC)**.
 
 ## 3. Mantenha offline
-Um console com CFW que se conecta aos servidores da Nintendo corre risco de banimento. A proteção usual é bloquear esses hosts no emuMMC com os arquivos hosts do Atmosphere. O zip do Atmosphere não traz um, e o Karman não impõe nenhum. Para bloquear, crie `atmosphere/hosts/emummc.txt` no SD com:
+Um console com CFW que se conecta aos servidores da Nintendo corre risco de banimento. O Karman traz `atmosphere/hosts/emummc.txt`, que bloqueia todo host `*nintendo*` no emuMMC (vale só para o emuMMC, não para a SysNAND):
 
 ```
-# Block Nintendo servers
-127.0.0.1 *nintendo.com
-127.0.0.1 *nintendo.net
-127.0.0.1 *nintendo.jp
-127.0.0.1 *nintendo.co.jp
-127.0.0.1 *nintendo.co.uk
-127.0.0.1 *nintendo-europe.com
-127.0.0.1 *nintendowifi.net
-127.0.0.1 *nintendoswitch.com
-127.0.0.1 *nintendoswitch.com.cn
-127.0.0.1 *nintendoswitch.cn
+127.0.0.1 *nintendo*
 ```
 
-Esta lista é parcial (a do próprio Atmosphere também cobre domínios regionais `nintendo.*`); consulte a documentação do Atmosphere para a lista completa. Use a SysNAND original (sem CFW) para tudo o que for online. Não copie saves ou contas entre as duas sem entender as consequências.
+Efeitos colaterais: a eShop e os recursos online da Nintendo não funcionam no emuMMC, e o Wi-Fi pode mostrar falha no teste de conexão (os recursos de rede dos homebrews continuam funcionando). Apague o arquivo para ficar online com o emuMMC, por sua conta e risco. Uma atualização completa pelo computador restaura o arquivo; a atualização no console também. Use a SysNAND original (sem CFW) para tudo o que for online. Não copie saves ou contas entre as duas sem entender as consequências.
 
 ## 4. Atualizando o firmware dentro do emuMMC
 Inicie **Karman (emuMMC)**, abra o **Daybreak** (`switch/daybreak.nro`), aponte para uma pasta com os arquivos de firmware que **você fornece** (o Karman não inclui firmware) e escolha a opção de instalar. Depois de atualizar o firmware, atualize o Karman também (o Atmosphere precisa suportar esse firmware).

@@ -12,14 +12,15 @@ O Karman **não** inclui chaves, firmware, jogos nem sigpatches. Use só os seus
 ## Passo a passo
 1. **Faça backup do cartão SD** e depois [formate em FAT32](format-sd.md).
 2. **Extraia o zip na raiz do cartão SD.** Se pedir, mescle as pastas. A raiz do cartão deve ter `atmosphere/`, `bootloader/`, `switch/`, `config/`, `hbmenu.nro` e `hekate_ctcaer_<versão>.bin`. O erro mais comum é uma pasta extra em volta (como `karman-1.0/atmosphere/…`).
-3. Coloque o Switch em RCM e **injete o `hekate_ctcaer_<versão>.bin`** (arquivo na raiz do zip; guarde uma cópia no PC para injetar).
+3. Coloque o Switch em RCM e **injete o `hekate_ctcaer_<versão>.bin`** (arquivo na raiz do zip; guarde uma cópia no PC para injetar). **Modchip** (Picofly, HWFLY…): não há o que injetar; o zip também coloca o Hekate em `payload.bin` (com um `boot.ini`), que o chip inicia sozinho.
 4. O menu do Hekate aparece. **Antes do primeiro boot com CFW, [crie um emuMMC](emummc.md)** (recomendado) e faça backup da NAND do sistema.
 5. Escolha **Karman (emuMMC)** (ou **Karman (SysNAND)**, se você sabe o que está fazendo). **Stock SysNAND** inicia sem CFW.
 6. O console inicia no Horizon com o Atmosphere rodando.
 
 ## Usando
-- **Menu de homebrew:** segure **R** ao abrir um jogo (ou abra o Álbum) para iniciar o menu de homebrew; o **Sphaira** é o launcher principal. Abrir o Álbum sem jogo aberto também funciona.
+- **Menu de homebrew:** segure **R** ao abrir um jogo (ou abra o Álbum sem segurar R) para iniciar o menu de homebrew; o **Sphaira** é o launcher principal. Abrir o Álbum sem jogo aberto também funciona.
 - **Overlays (Ultrahand):** pressione **ZL + ZR + D-Pad para baixo** a qualquer momento. Os overlays incluem FPSLocker, Fizeau, sysmodules, emuiibo e o pacote **Karman** (troca de idioma).
+- **Reiniciar / desligar:** Ultrahand → pacote **Karman** → *Reboot to boot entry*, *Reboot to Hekate*, *Reboot to USB mass storage*, *Shut down*.
 - **Instalar jogos/atualizações que você possui:** Goldleaf ou DBI.
 - **Saves:** Checkpoint ou JKSV. **FTP:** sys-ftpd-light (ative pelo overlay de sysmodules do Ultrahand).
 - **Atualizar o firmware:** Daybreak (`switch/daybreak.nro`) com arquivos de firmware que você fornece.

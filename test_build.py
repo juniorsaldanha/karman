@@ -298,6 +298,19 @@ class Package(unittest.TestCase):
             "",
         ])
 
+    def test_reboot_shortcuts(self):
+        pkg = self.pkg()
+        self.assertEqual(section(pkg, "Reboot to boot entry"), [
+            "[Reboot to boot entry]",
+            "ini_file_source /bootloader/hekate_ipl.ini",
+            "filter config",
+            "reboot boot '{ini_file_source(*)}'",
+            "",
+        ])
+        self.assertIn("reboot HEKATE", section(pkg, "Reboot to Hekate"))
+        self.assertIn("reboot UMS", section(pkg, "Reboot to USB mass storage"))
+        self.assertIn("shutdown", section(pkg, "Shut down"))
+
     def test_install_only_after_positive_marker(self):
         sec = section(self.pkg('[release]\nrepo = "o/r"'), "Update Karman (reboot after)")
         gate = sec.index(f"path_exists {DL}/gate/p1")
@@ -447,6 +460,30 @@ class Build(unittest.TestCase):
             with self.assertRaisesRegex(build.BuildError, r"^a: "):
                 self.run_build(root)
             self.assertFalse((root / "dist/out.zip").exists())
+
+
+class Modchip(unittest.TestCase):
+    def build_with(self, *bins):
+        with tempfile.TemporaryDirectory() as t:
+            root = make_root(t)
+            with zipfile.ZipFile(root / "fix/h.zip", "w") as z:
+                for b in bins:
+                    z.writestr(b, b"HEKATE")
+            m = root / "manifest.toml"
+            m.write_text(m.read_text() + f'[[component]]\nname="h"\nsource="local"\npath="{root/"fix/h.zip"}"\n')
+            return zipfile.ZipFile(build.build(root, m, root / "dist/o.zip", root / ".cache"))
+
+    def test_hekate_payload_copied_for_modchips_and_reboot(self):
+        z = self.build_with("hekate_ctcaer_9.9.bin")
+        self.assertEqual(z.read("payload.bin"), b"HEKATE")
+        self.assertEqual(z.read("atmosphere/reboot_payload.bin"), b"HEKATE")
+
+    def test_two_hekate_bins_is_an_error(self):
+        with self.assertRaisesRegex(build.BuildError, "hekate_ctcaer"):
+            self.build_with("hekate_ctcaer_1.bin", "hekate_ctcaer_2.bin")
+
+    def test_no_hekate_bin_is_fine(self):
+        self.assertNotIn("payload.bin", self.build_with("other.txt").namelist())
 
 
 if __name__ == "__main__":

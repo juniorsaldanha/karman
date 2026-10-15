@@ -147,6 +147,17 @@ def apply_overlays(root, stage):
         shutil.copytree(root / "lang" / l, stage / "karman/lang" / l, dirs_exist_ok=True)
 
 
+def hekate_payloads(stage):
+    # modchips boot /payload.bin; Atmosphere's "reboot to payload" uses atmosphere/reboot_payload.bin
+    bins = sorted(stage.glob("hekate_ctcaer_*.bin"))
+    if len(bins) > 1:
+        raise BuildError(f"expected one hekate_ctcaer_*.bin, found {len(bins)}")
+    for b in bins:
+        for dest in ("payload.bin", "atmosphere/reboot_payload.bin"):
+            (stage / dest).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(b, stage / dest)
+
+
 UPDATE_ASSET = "karman-update.zip"
 LATEST_ASSET = "karman-latest.ini"
 DL = "/config/ultrahand/downloads"
@@ -211,10 +222,19 @@ def update_sections(release, build_no):
     return out
 
 
+REBOOT_SECTIONS = [
+    "[Reboot to boot entry]", "ini_file_source /bootloader/hekate_ipl.ini", "filter config",
+    "reboot boot '{ini_file_source(*)}'", "",
+    "[Reboot to Hekate]", "reboot HEKATE", "",
+    "[Reboot to USB mass storage]", "reboot UMS", "",
+    "[Shut down]", "shutdown", "",
+]
+
+
 def write_package(stage, release=None, build_no="00000000"):
     # ponytail: whole-file copy resets other Ultrahand settings (combo, theme);
     # switch to an ini-edit command if Ultrahand exposes one.
-    lines = update_sections(release or {}, build_no)
+    lines = update_sections(release or {}, build_no) + REBOOT_SECTIONS
     for l, title in LANGS.items():
         base = stage / "karman/lang" / l
         lines.append(f"[{title}]")
@@ -283,6 +303,7 @@ def build(root, manifest, out, cache, version="dev", build_no="00000000"):
             except Exception as e:
                 raise BuildError(f"{c['name']}: {e}") from e
             lock[c["name"]] = {"tag": tag, "asset": name, "sha256": digest}
+        hekate_payloads(stage)
         apply_overlays(root, stage)
         write_package(stage, release, build_no)
         text = json.dumps(lock, indent=2, sort_keys=True) + "\n"

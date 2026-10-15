@@ -27,23 +27,13 @@ Stores the emuMMC as files on the FAT32 partition, in 4 GB parts.
 Afterwards **Nyx → emuMMC → Change emuMMC** shows and selects the active one. Boot **Karman (emuMMC)**.
 
 ## 3. Keep it offline
-A CFW console that connects to Nintendo's servers risks a ban. The usual protection is blocking those hosts for the emuMMC with Atmosphere's hosts files. The Atmosphere zip doesn't ship one, and Karman doesn't force one on you. To block, create `atmosphere/hosts/emummc.txt` on the SD with:
+A CFW console that connects to Nintendo's servers risks a ban. Karman ships `atmosphere/hosts/emummc.txt`, which blocks every `*nintendo*` host for the emuMMC (it applies to the emuMMC only, not to SysNAND):
 
 ```
-# Block Nintendo servers
-127.0.0.1 *nintendo.com
-127.0.0.1 *nintendo.net
-127.0.0.1 *nintendo.jp
-127.0.0.1 *nintendo.co.jp
-127.0.0.1 *nintendo.co.uk
-127.0.0.1 *nintendo-europe.com
-127.0.0.1 *nintendowifi.net
-127.0.0.1 *nintendoswitch.com
-127.0.0.1 *nintendoswitch.com.cn
-127.0.0.1 *nintendoswitch.cn
+127.0.0.1 *nintendo*
 ```
 
-This list is partial (Atmosphere's own list also covers regional `nintendo.*` domains); check Atmosphere's documentation for the full one. Use the stock (non-CFW) SysNAND for anything online. Don't copy saves or accounts between the two without understanding the consequences.
+Side effects: the eShop and Nintendo online features won't work in the emuMMC, and Wi-Fi may report a failed connection test (homebrew network features still work). Delete the file to go online with the emuMMC, at your own risk. A full update from a computer restores the file; the on-console update does too. Use the stock (non-CFW) SysNAND for anything online. Don't copy saves or accounts between the two without understanding the consequences.
 
 ## 4. Updating firmware inside the emuMMC
 Boot **Karman (emuMMC)**, open **Daybreak** (`switch/daybreak.nro`), point it at a folder with the firmware files **you supply** (Karman doesn't include firmware), choose the install option. After a firmware update, update Karman too (Atmosphere must support that firmware).

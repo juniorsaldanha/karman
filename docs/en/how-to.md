@@ -12,14 +12,15 @@ Karman contains **no** keys, firmware, games or sigpatches. Bring only your own.
 ## Steps
 1. **Back up the SD card**, then [format it as FAT32](format-sd.md).
 2. **Extract the zip to the root of the SD card.** Merge folders if asked. The card root must contain `atmosphere/`, `bootloader/`, `switch/`, `config/`, `hbmenu.nro` and `hekate_ctcaer_<version>.bin`. A single extra folder around them (like `karman-1.0/atmosphere/…`) is the most common mistake.
-3. Put the Switch in RCM and **inject `hekate_ctcaer_<version>.bin`** (the file at the SD root of the zip; keep a copy on your PC for injection).
+3. Put the Switch in RCM and **inject `hekate_ctcaer_<version>.bin`** (the file at the SD root of the zip; keep a copy on your PC for injection). **Modchip** (Picofly, HWFLY…): nothing to inject; the zip also puts Hekate at `payload.bin` (with a `boot.ini`), which the chip boots by itself.
 4. Hekate's menu appears. **Before the first CFW boot, [create an emuMMC](emummc.md)** (recommended), and back up your system NAND.
 5. Choose **Karman (emuMMC)** (or **Karman (SysNAND)** if you know why). **Stock SysNAND** boots without CFW.
 6. The console boots into Horizon with Atmosphere running.
 
 ## Using it
-- **Homebrew menu:** hold **R** while launching a game (or open the Album) to start the homebrew menu; **Sphaira** is the main launcher. Launching the Album with no game open also works.
+- **Homebrew menu:** hold **R** while launching a game (or open the Album without holding R) to start the homebrew menu; **Sphaira** is the main launcher. Launching the Album with no game open also works.
 - **Overlays (Ultrahand):** press **ZL + ZR + D-Pad Down** at any time. Overlays include FPSLocker, Fizeau, system modules, emuiibo and the **Karman** package (language switch).
+- **Reboot / shut down:** Ultrahand → **Karman** package → *Reboot to boot entry*, *Reboot to Hekate*, *Reboot to USB mass storage*, *Shut down*.
 - **Install games/updates you own:** Goldleaf or DBI.
 - **Saves:** Checkpoint or JKSV. **FTP:** sys-ftpd-light (toggle it from the Ultrahand sysmodules overlay).
 - **Firmware update:** Daybreak (`switch/daybreak.nro`) using firmware files you supply.

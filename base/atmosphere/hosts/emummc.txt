@@ -1,0 +1,2 @@
+# Karman: keep the emuMMC (CFW) off Nintendo servers. Remove this file to go online with it, at your own risk.
+127.0.0.1 *nintendo*

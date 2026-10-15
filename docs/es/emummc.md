@@ -27,23 +27,13 @@ Guarda el emuMMC como archivos en la partición FAT32, en partes de 4 GB.
 Después, **Nyx → emuMMC → Change emuMMC** muestra y selecciona el activo. Arranca **Karman (emuMMC)**.
 
 ## 3. Mantenlo sin conexión
-Una consola con CFW que se conecta a los servidores de Nintendo corre riesgo de baneo. La protección habitual es bloquear esos hosts en el emuMMC con los archivos hosts de Atmosphere. El zip de Atmosphere no trae ninguno, y Karman no te impone uno. Para bloquear, crea `atmosphere/hosts/emummc.txt` en la SD con:
+Una consola con CFW que se conecta a los servidores de Nintendo corre riesgo de baneo. Karman incluye `atmosphere/hosts/emummc.txt`, que bloquea todo host `*nintendo*` en el emuMMC (vale solo para el emuMMC, no para la SysNAND):
 
 ```
-# Block Nintendo servers
-127.0.0.1 *nintendo.com
-127.0.0.1 *nintendo.net
-127.0.0.1 *nintendo.jp
-127.0.0.1 *nintendo.co.jp
-127.0.0.1 *nintendo.co.uk
-127.0.0.1 *nintendo-europe.com
-127.0.0.1 *nintendowifi.net
-127.0.0.1 *nintendoswitch.com
-127.0.0.1 *nintendoswitch.com.cn
-127.0.0.1 *nintendoswitch.cn
+127.0.0.1 *nintendo*
 ```
 
-Esta lista es parcial (la del propio Atmosphere también cubre dominios regionales `nintendo.*`); consulta la documentación de Atmosphere para la lista completa. Usa la SysNAND original (sin CFW) para todo lo que sea en línea. No copies partidas ni cuentas entre las dos sin entender las consecuencias.
+Efectos secundarios: la eShop y las funciones en línea de Nintendo no funcionan en el emuMMC, y el Wi-Fi puede indicar fallo en la prueba de conexión (las funciones de red de los homebrews siguen funcionando). Borra el archivo para conectarte con el emuMMC, bajo tu propio riesgo. Una actualización completa desde un ordenador restaura el archivo; la actualización en la consola también. Usa la SysNAND original (sin CFW) para todo lo que sea en línea. No copies partidas ni cuentas entre las dos sin entender las consecuencias.
 
 ## 4. Actualizar el firmware dentro del emuMMC
 Arranca **Karman (emuMMC)**, abre **Daybreak** (`switch/daybreak.nro`), apúntalo a una carpeta con los archivos de firmware que **tú proporcionas** (Karman no incluye firmware) y elige la opción de instalar. Tras actualizar el firmware, actualiza también Karman (Atmosphere debe ser compatible con ese firmware).
